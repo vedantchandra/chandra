@@ -3,7 +3,7 @@
 from setuptools import find_packages, setup
 
 setup(
-    name="cool_science",
+    name="chandra",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
 )
