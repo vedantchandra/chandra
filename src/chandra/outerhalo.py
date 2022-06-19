@@ -13,6 +13,7 @@ except:
 from astropy.io import fits
 import astropy.units as u
 from gala import coordinates as gc, potential as gp, dynamics as gd
+from gala.dynamics.actionangle.tests.staeckel_helpers import galpy_find_actions_staeckel
 from tqdm import tqdm
 import copy
 from scipy import stats
@@ -81,6 +82,8 @@ def make_kinematics(tab, nmc = 10, orbit = False, pot = gp.MilkyWayPotential(),
 	newtab = copy.deepcopy(tab)
 	
 	kin_mc = {};
+
+	galpy_potential = pot.to_galpy_potential()
 	
 	kin_mc['Etot'] = np.zeros((len(tab), nmc)) * np.nan
 	kin_mc['Ek'] = np.zeros((len(tab), nmc)) * np.nan
@@ -201,8 +204,13 @@ def make_kinematics(tab, nmc = 10, orbit = False, pot = gp.MilkyWayPotential(),
 			kin_mc['rperi'][idx, :] = orbit.pericenter().value
 			kin_mc['rapo'][idx, :] = orbit.apocenter().value
 			kin_mc['zmax'][idx, :] = orbit.zmax().value
+			
+# 			o = orbit.to_galpy_orbit()
+# 			delta = get_staeckel_fudge_delta(pot, orbit)
+# 			staeckel = actionAngleStaeckel(pot=galpy_potential, delta=delta)
+# 			aaf = staeckel.actionsFreqs(o)
             
-			aaf = gd.find_actions_staeckel(pot, orbit)
+			aaf = galpy_find_actions_staeckel(pot, orbit)
 			kin_mc['Jr'][idx, :] = aaf['actions'][:, 0].value * 1e-3
 			kin_mc['Jphi'][idx, :] = aaf['actions'][:, 1].value * 1e-3
 			kin_mc['Jz'][idx, :] = aaf['actions'][:, 2].value * 1e-3
