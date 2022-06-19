@@ -204,7 +204,7 @@ def make_kinematics(tab, nmc = 10, orbit = False, pot = gp.MilkyWayPotential(),
 			kin_mc['rperi'][idx, :] = orbit.pericenter().value
 			kin_mc['rapo'][idx, :] = orbit.apocenter().value
 			kin_mc['zmax'][idx, :] = orbit.zmax().value
-			
+
 # 			o = orbit.to_galpy_orbit()
 # 			delta = get_staeckel_fudge_delta(pot, orbit)
 # 			staeckel = actionAngleStaeckel(pot=galpy_potential, delta=delta)
@@ -222,7 +222,7 @@ def make_kinematics(tab, nmc = 10, orbit = False, pot = gp.MilkyWayPotential(),
 
 	for param,values in kin_mc.items():
 		
-		newtab[param] = np.nanmean(values, axis = 1)
+		newtab[param] = np.nanmedian(values, axis = 1)
 		newtab['e_' + param] = (np.nanquantile(values, 0.84, axis = 1) - np.nanquantile(values, 0.16, axis = 1)) / 2
 		
 		newtab['le_' + param] = (np.nanquantile(values, 0.5, axis = 1) - np.nanquantile(values, 0.16, axis = 1))
