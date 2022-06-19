@@ -456,7 +456,11 @@ def plot_dss(sel_ra, sel_dec, size = 30, radius = 6, plot_circles = False, circl
 #### CORRELATION FUNCTIONS
 
 from astropy.coordinates import SkyCoord
-from sklearn.neighbors import KDTree
+
+try:
+	from sklearn.neighbors import KDTree
+except:
+	print('no sklearn, no corrfuncs')
 
 def shuffle_along_axis(a, axis):
 	idx = np.random.rand(*a.shape).argsort(axis=axis)
