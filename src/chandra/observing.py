@@ -3,7 +3,10 @@
 import io
 import urllib
 from astropy.io import fits
-import aplpy
+try:
+    import aplpy
+except:
+    print('no aplpy found, cannot make findercharts')
 import matplotlib.pyplot as plt
 import numpy as np
 import sys
