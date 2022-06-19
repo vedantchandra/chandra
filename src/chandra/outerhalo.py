@@ -6,7 +6,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import io
 import urllib
-import aplpy
+try:
+	import aplpy
+except:
+	print('no aplpy, no finder charts..')
 from astropy.io import fits
 import astropy.units as u
 from gala import coordinates as gc, potential as gp, dynamics as gd
