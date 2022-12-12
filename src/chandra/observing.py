@@ -7,6 +7,7 @@ try:
     import aplpy
 except:
     print('no aplpy found, cannot make findercharts')
+    raise
 import matplotlib.pyplot as plt
 import numpy as np
 import sys
@@ -16,7 +17,7 @@ import sys
 #### ADAPTED FROM PYSALT: https://github.com/saltastro/pysalt #######
 
 def get_dss(imserver, ra, dec):
-    url = "http://archive.stsci.edu/cgi-bin/dss_search?v=%s&r=%f&d=%f&e=J2000&h=5.0&w=5.0&f=fits&c=none" %\
+    url = "http://archive.stsci.edu/cgi-bin/dss_search?v=%s&r=%f&d=%f&e=J2000&h=3.0&w=3.0&f=fits&c=none" %\
                     (imserver, ra, dec)
     print(url)
     fitsData = io.BytesIO()

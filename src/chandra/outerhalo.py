@@ -18,6 +18,8 @@ from tqdm import tqdm
 import copy
 from scipy import stats
 from astropy import coordinates as acoord
+from astropy.coordinates import Angle
+import astropy
 
 
 lmc = [280.4652, -32.8884]
@@ -27,48 +29,93 @@ smc = [302.8084, -44.3277]
  # COMPUTE HALO quantitities 
 
 
+def get_vgsr(tab):
+    ceq = astropy.coordinates.ICRS(
+                   ra=tab['ra'] * u.deg, dec=tab['dec'] * u.deg, 
+                    distance=tab['distance'] * u.kpc, 
+                   pm_ra_cosdec=tab['pmra'] * u.mas / u.yr, pm_dec=tab['pmdec'] * u.mas / u.yr,
+                   radial_velocity=tab['rv'] * u.km / u.s)
+
+    cgal = ceq.transform_to(astropy.coordinates.Galactocentric())
+
+    w0 = gd.PhaseSpacePosition(cgal.sphericalcoslat)
+
+    # calculate RV_GSR
+    ceq1 = astropy.coordinates.ICRS(
+       ra=tab['ra'] * u.deg, dec=tab['dec'] * u.deg, radial_velocity=tab['rv'] * u.km / u.s)
+
+    # v_sun = coord.galactocentric_frame_defaults.get()['galcen_v_sun'].to_cartesian()
+    v_sun = cgal.galcen_v_sun.to_cartesian()
+
+    cgal1 = ceq1.transform_to(astropy.coordinates.Galactic())
+    cart_data = cgal1.data.to_cartesian()
+    unit_vector = cart_data / cart_data.norm()
+    v_proj = v_sun.dot(unit_vector)
+
+    V_gsr = ceq1.radial_velocity + v_proj
+    
+    return V_gsr.value
+
 def make_coords(table):
 
-	coord = SkyCoord(ra = table['ra'], dec = table['dec'], frame = 'icrs',
-			 pm_ra_cosdec = table['pmra'], pm_dec = table['pmdec'],
-			 radial_velocity = table['rv'],
-			 distance = table['distance'])
+	coord = SkyCoord(ra = table['ra'] * u.deg, dec = table['dec'] * u.deg, 
+					pm_ra_cosdec = table['pmra'] * u.mas / u.yr,
+					pm_dec = table['pmdec'] * u.mas / u.yr,
+					distance = table['distance'] * u.kpc,
+					radial_velocity = table['rv'] * u.km / u.s)
 
 	coord_rc = gc.reflex_correct(coord)
 
-	gal = coord.galactic
-	gal_rc = coord_rc.galactic
+	coord_sgr = coord.transform_to(gc.SagittariusLaw10)
+	coord_sgr_rc = coord_rc.transform_to(gc.SagittariusLaw10)
+	coord_ms_rc = coord_rc.transform_to(gc.MagellanicStreamNidever08)
+
+	table['l'] = coord.galactic.l.value
+	table['b'] = coord.galactic.b.value
+
+	table['lw'] = Angle(table['l'] * u.deg).wrap_at('180d').value
+
+	table['pmra_rc'] = coord_rc.pm_ra_cosdec.value
+	table['pmdec_rc'] = coord_rc.pm_dec
+	table['vtra_rc'] = 4.7 * table['pmra_rc'] * table['distance']
+	table['vtdec_rc'] = 4.7 * table['pmdec_rc'] * table['distance']
+	table['pml_rc'] = coord_rc.galactic.pm_l_cosb.value
+	table['pmb_rc'] = coord_rc.galactic.pm_b
+	table['vtl_rc'] = 4.7 * table['pml_rc'] * table['distance']
+	table['vtb_rc'] = 4.7 * table['pmb_rc'] * table['distance']
+	table['vt_rc'] = np.sqrt(table['vtra_rc']**2 + table['vtdec_rc']**2)
+
+	table['sgr_l'] = coord_sgr.Lambda.value
+	table['sgr_b'] = coord_sgr.Beta.value
+	table['ms_l'] = coord_ms_rc.L.value
+	table['ms_b'] = coord_ms_rc.B.value
+
+	table['pm_rc'] = np.sqrt(table['pmra_rc']**2 + table['pmdec_rc']**2)
+
+	# if (table['rv'] == 0).all():
+	# 	table['rv_rc'] = np.nan
+	# else:
+	# 	table['rv_rc'] = coord_rc.radial_velocity.value
+
+	if (table['rv'] == 0).all():
+		table['v_gsr'] = np.nan
+	else:
+		table['v_gsr'] = get_vgsr(table)
+
 
 	table['X'] = coord.galactocentric.x.value
 	table['Y'] = coord.galactocentric.y.value
 	table['Z'] = coord.galactocentric.z.value
-	table['Rgal'] = np.sqrt(table['X']**2 + table['Y']**2 + table['Z']**2)
-	table['lwrap'] = gal.l.value
-	table['b'] = gal.b.value
 
-	table['l'] = table['lwrap'].copy()
-	table['l'][table['l'] < 0] = table['l'][table['l'] < 0] + 360
+	table['pm_msl_rc'] = coord_ms_rc.pm_L_cosB
+	table['pm_msb_rc'] = coord_ms_rc.pm_B
+	table['vt_msl_rc'] = 4.7 * table['pm_msl_rc'] * table['distance']
+	table['vt_msb_rc'] = 4.7 * table['pm_msb_rc'] * table['distance']
 
-	table['sgr_l'] = coord.transform_to(gc.SagittariusLaw10).Lambda.value
-	table['sgr_b'] = coord.transform_to(gc.SagittariusLaw10).Beta.value
-
-	table['pmra_rc'] = coord_rc.pm_ra_cosdec.value
-	table['pmdec_rc'] = coord_rc.pm_dec.value
-	table['pm_rc'] = np.sqrt(table['pmra_rc']**2 + table['pmdec_rc']**2)
-
-	table['rv_rc'] = coord_rc.radial_velocity.value
-
-	table['pml'] = gal.pm_l_cosb.value
-	table['pmb'] = gal.pm_b.value
-
-	table['pml_rc'] = gal_rc.pm_l_cosb.value
-	table['pmb_rc'] = gal_rc.pm_b.value
-
-	table['vtl'] = 4.7 * table['pml'] * table['distance']
-	table['vtb'] = 4.7 * table['pmb'] * table['distance']
-
-	table['vtl_rc'] = 4.7 * table['pml_rc'] * table['distance']
-	table['vtb_rc'] = 4.7 * table['pmb_rc'] * table['distance']
+	table['pm_sgrl_rc'] = coord_sgr_rc.pm_Lambda_cosBeta
+	table['pm_sgrb_rc'] = coord_sgr_rc.pm_Beta
+	table['vt_sgrl_rc'] = 4.7 * table['pm_sgrl_rc'] * table['distance']
+	table['vt_sgrb_rc'] = 4.7 * table['pm_sgrb_rc'] * table['distance']
 
 	table['d_lmc'] = np.sqrt(((table['l'] - lmc[0]) * np.cos(np.radians(table['b'])))**2 + (table['b'] - lmc[1])**2)
 	table['d_smc'] = np.sqrt(((table['l'] - smc[0]) * np.cos(np.radians(table['b'])))**2 + (table['b'] - smc[1])**2)
@@ -77,7 +124,7 @@ def make_coords(table):
 
 
 def make_kinematics(tab, nmc = 10, orbit = False, pot = gp.MilkyWayPotential(),
-	orbit_kw = dict(dt= 1 * u.Myr, n_steps=2500)):
+	orbit_kw = dict(dt= 1 * u.Myr, n_steps=2500), ret_orbit = False):
 	
 	newtab = copy.deepcopy(tab)
 	
@@ -104,6 +151,8 @@ def make_kinematics(tab, nmc = 10, orbit = False, pot = gp.MilkyWayPotential(),
 	kin_mc['Jphi'] = np.zeros((len(tab), nmc)) * np.nan
 	kin_mc['Jz'] = np.zeros((len(tab), nmc)) * np.nan
 	kin_mc['Jtot'] = np.zeros((len(tab), nmc)) * np.nan
+
+	orbits = [];
 		
 	print('sampling astrometry and distance, computing phase-space...')
 	
@@ -143,6 +192,15 @@ def make_kinematics(tab, nmc = 10, orbit = False, pot = gp.MilkyWayPotential(),
 		distances = distances * u.kpc
 		rvs = (star['rv'] + np.random.normal(size = nmc) * star['e_rv']) * u.km / u.s
 		
+		# set the first MC sample to be the mean parameters. 
+
+		ras[0] = star['ra'] * u.deg
+		decs[0] = star['dec'] * u.deg
+		pmras[0] = star['pmra'] * u.mas / u.yr
+		pmdecs[0] = star['pmdec'] * u.mas / u.yr
+		distances[0] = star['distance'] * u.kpc
+		rvs[0] = star['rv'] * u.km / u.s
+
 		coord_i = SkyCoord(ra = ras, 
 						dec = decs, 
 						 pm_ra_cosdec = pmras, 
@@ -200,6 +258,10 @@ def make_kinematics(tab, nmc = 10, orbit = False, pot = gp.MilkyWayPotential(),
 		if orbit:
 		
 			orbit = gp.Hamiltonian(pot).integrate_orbit(w0, **orbit_kw)
+
+			if ret_orbit:
+				orbits.append(orbit)
+			
 			kin_mc['ecc'][idx, :] = orbit.eccentricity().value
 			kin_mc['rperi'][idx, :] = orbit.pericenter().value
 			kin_mc['rapo'][idx, :] = orbit.apocenter().value
@@ -209,7 +271,7 @@ def make_kinematics(tab, nmc = 10, orbit = False, pot = gp.MilkyWayPotential(),
 # 			delta = get_staeckel_fudge_delta(pot, orbit)
 # 			staeckel = actionAngleStaeckel(pot=galpy_potential, delta=delta)
 # 			aaf = staeckel.actionsFreqs(o)
-            
+			
 			aaf = galpy_find_actions_staeckel(pot, orbit)
 			kin_mc['Jr'][idx, :] = aaf['actions'][:, 0].value * 1e-3
 			kin_mc['Jphi'][idx, :] = aaf['actions'][:, 1].value * 1e-3
@@ -228,7 +290,13 @@ def make_kinematics(tab, nmc = 10, orbit = False, pot = gp.MilkyWayPotential(),
 		newtab['le_' + param] = (np.nanquantile(values, 0.5, axis = 1) - np.nanquantile(values, 0.16, axis = 1))
 		newtab['ue_' + param] = (np.nanquantile(values, 0.84, axis = 1) - np.nanquantile(values, 0.5, axis = 1))
 	
-	return newtab
+
+	if ret_orbit:
+		print('returning orbits...')
+		return newtab, orbits
+
+	else:
+		return newtab
 
 
 
