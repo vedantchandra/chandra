@@ -15,9 +15,9 @@ import sys
 #### FINDER CHARTS #############
 #### ADAPTED FROM PYSALT: https://github.com/saltastro/pysalt #######
 
-def get_dss(imserver, ra, dec):
-    url = "http://archive.stsci.edu/cgi-bin/dss_search?v=%s&r=%f&d=%f&e=J2000&h=3.0&w=3.0&f=fits&c=none" %\
-                    (imserver, ra, dec)
+def get_dss(imserver, ra, dec, size = 3.0):
+    url = "http://archive.stsci.edu/cgi-bin/dss_search?v=%s&r=%f&d=%f&e=J2000&h=%.1f&w=%.1f&f=fits&c=none" %\
+                    (imserver, ra, dec, size, size)
     print(url)
     fitsData = io.BytesIO()
     data = urllib.request.urlopen(url).read()
@@ -82,8 +82,8 @@ def draw_line(plot, theta, length, ra, dec, color='b', linewidth=1, alpha=0.7):
     plot.show_lines([coords], color=color, linewidth=linewidth, alpha=alpha)
     return plot
 
-def finderchart(ra, dec, name):
-    img = get_dss('poss2ukstu_red', ra, dec)
+def finderchart(ra, dec, name, size = 3.0):
+    img = get_dss('poss2ukstu_red', ra, dec, size = size)
     plot = init_plot(img, name, ra, dec)
     plt.tight_layout()
     return plot
